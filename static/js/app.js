@@ -38,6 +38,9 @@ function updateSystemStatus(status) {
     const ocrStatus = document.getElementById('ocr-status');
     const uploadContent = document.getElementById('upload-content');
     
+    // 更新模型信息显示
+    updateModelsInfo(status.models_info || []);
+    
     if (status.ocr_ready) {
         // OCR已就绪
         ocrReady = true;
@@ -361,6 +364,51 @@ function copyResult() {
     resultText.select();
     document.execCommand('copy');
     alert('结果已复制到剪贴板');
+}
+
+function updateModelsInfo(modelsInfo) {
+    const modelsInfoElement = document.getElementById('models-info');
+    
+    if (!modelsInfo || modelsInfo.length === 0) {
+        modelsInfoElement.innerHTML = '<span class="badge bg-secondary">暂无模型</span>';
+        return;
+    }
+    
+    let html = '';
+    let totalSize = 0;
+    
+    modelsInfo.forEach(model => {
+        totalSize += model.size_mb || 0;
+        const sizeText = model.size_mb > 0 ? `${model.size_mb}MB` : '未知';
+        const currentBadge = model.is_current ? '<span class="badge bg-success ms-1" style="font-size: 0.6em;">当前</span>' : '';
+        
+        html += `
+            <div class="mb-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">${model.name}${currentBadge}</small>
+                    <span class="badge bg-primary">${model.version}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-secondary">${model.type}</small>
+                    <small class="text-info">${sizeText}</small>
+                </div>
+            </div>
+        `;
+    });
+    
+    // 添加总大小信息
+    if (totalSize > 0) {
+        html += `
+            <div class="mt-2 pt-2 border-top">
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="fw-bold">总大小:</small>
+                    <span class="badge bg-success">${totalSize.toFixed(2)}MB</span>
+                </div>
+            </div>
+        `;
+    }
+    
+    modelsInfoElement.innerHTML = html;
 }
 
 function showManualGuide() {

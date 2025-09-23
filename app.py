@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PaddlePaddle OCR v0.1 - 基于PaddleOCR 3.x优化版
+PaddlePaddle OCR v0.2.0 - 基于PaddleOCR 3.x优化版
 优化特性：
 - 快速启动，延迟初始化OCR服务
 - 强制CPU模式，确保稳定性
@@ -51,6 +51,120 @@ def check_paddle_available():
     except ImportError as e:
         logging.warning(f"PaddleOCR不可用: {e}")
         return False
+
+def get_file_size_mb(file_path):
+    """获取文件大小（MB）"""
+    try:
+        if os.path.exists(file_path):
+            size_bytes = os.path.getsize(file_path)
+            return round(size_bytes / (1024 * 1024), 2)
+        return 0
+    except Exception:
+        return 0
+
+def get_directory_size_mb(dir_path):
+    """获取目录总大小（MB）"""
+    try:
+        if not os.path.exists(dir_path):
+            return 0
+        
+        total_size = 0
+        for dirpath, dirnames, filenames in os.walk(dir_path):
+            for filename in filenames:
+                file_path = os.path.join(dirpath, filename)
+                try:
+                    total_size += os.path.getsize(file_path)
+                except (OSError, IOError):
+                    continue
+        return round(total_size / (1024 * 1024), 2)
+    except Exception:
+        return 0
+
+def get_model_info():
+    """获取模型版本和大小信息"""
+    models_info = []
+    
+    try:
+        home_dir = os.path.expanduser("~")
+        
+        # 确定当前使用的模型类型
+        # PaddleOCR 3.x优先使用PaddleX模型，如果没有则使用传统v4模型
+        paddlex_dir = os.path.join(home_dir, ".paddlex", "official_models")
+        use_paddlex = os.path.exists(paddlex_dir)
+        
+        # 检查PaddleOCR 3.x的新模型存储位置
+        if use_paddlex:
+            model_dirs = [d for d in os.listdir(paddlex_dir) if os.path.isdir(os.path.join(paddlex_dir, d))]
+            
+            # 确定当前使用的PaddleX模型（通常是mobile版本优先）
+            current_models = []
+            for model_dir in model_dirs:
+                if 'mobile' in model_dir.lower():
+                    current_models.append(model_dir)
+            
+            # 如果没有mobile版本，选择其他可用模型
+            if not current_models and model_dirs:
+                current_models = model_dirs[:3]  # 取前3个作为当前使用的模型
+            
+            for model_dir in model_dirs:
+                model_path = os.path.join(paddlex_dir, model_dir)
+                size_mb = get_directory_size_mb(model_path)
+                if size_mb > 0:
+                    models_info.append({
+                        'name': model_dir,
+                        'version': '3.x',
+                        'size_mb': size_mb,
+                        'type': 'PaddleX Official',
+                        'is_current': model_dir in current_models
+                    })
+        
+        # 向后兼容：检查旧版本模型结构
+        paddle_dir = os.path.join(home_dir, ".paddleocr")
+        if os.path.exists(paddle_dir):
+            whl_dir = os.path.join(paddle_dir, "whl")
+            if os.path.exists(whl_dir):
+                # 检查v4模型文件
+                model_configs = [
+                    {
+                        'path': os.path.join(whl_dir, "det", "ch", "ch_PP-OCRv4_det_infer"),
+                        'name': 'PP-OCRv4 检测模型',
+                        'version': 'v4.0',
+                        'type': 'Detection'
+                    },
+                    {
+                        'path': os.path.join(whl_dir, "rec", "ch", "ch_PP-OCRv4_rec_infer"),
+                        'name': 'PP-OCRv4 识别模型',
+                        'version': 'v4.0',
+                        'type': 'Recognition'
+                    },
+                    {
+                        'path': os.path.join(whl_dir, "cls", "ch_ppocr_mobile_v2.0_cls_infer"),
+                        'name': '文字方向分类模型',
+                        'version': 'v2.0',
+                        'type': 'Classification'
+                    }
+                ]
+                
+                for model_config in model_configs:
+                    model_path = model_config['path']
+                    if os.path.exists(model_path):
+                        pdmodel_file = os.path.join(model_path, "inference.pdmodel")
+                        pdiparams_file = os.path.join(model_path, "inference.pdiparams")
+                        if os.path.exists(pdmodel_file) and os.path.exists(pdiparams_file):
+                            size_mb = get_directory_size_mb(model_path)
+                            models_info.append({
+                                'name': model_config['name'],
+                                'version': model_config['version'],
+                                'size_mb': size_mb,
+                                'type': model_config['type'],
+                                'is_current': not use_paddlex  # 只有在没有PaddleX模型时才标记为当前
+                            })
+        
+        return models_info
+        
+    except Exception as e:
+        logging.error(f"获取模型信息时出错: {e}")
+        return []
 
 def check_models_downloaded():
     """检查模型文件是否已下载 - 兼容PaddleOCR 3.x版本"""
@@ -175,6 +289,7 @@ def api_status():
     paddle_available = check_paddle_available()
     models_downloaded = check_models_downloaded()
     can_init_immediately = can_init_ocr_immediately()
+    models_info = get_model_info()
     
     return jsonify({
         'success': True,
@@ -186,6 +301,7 @@ def api_status():
             'ocr_initializing': ocr_initializing,
             'ocr_error': ocr_init_error,
             'version': 'PaddleOCR 3.x',
+            'models_info': models_info,
             'timestamp': time.time()
         }
     })
@@ -349,12 +465,12 @@ def health():
     """健康检查"""
     return jsonify({
         'status': 'healthy',
-        'version': 'v0.1.0',
+        'version': 'v0.2.0',
         'paddleocr_version': '3.x',
         'timestamp': time.time()
     })
 
 if __name__ == '__main__':
-    logging.info("启动PaddlePaddle OCR v0.1（基于PaddleOCR 3.x）...")
+    logging.info("启动PaddlePaddle OCR v0.2.0（基于PaddleOCR 3.x）...")
     logging.info("优化特性：快速启动、CPU模式、延迟初始化、使用最新API")
     app.run(host='127.0.0.1', port=5000, debug=False)
