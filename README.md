@@ -1,4 +1,4 @@
-# PaddlePaddle OCR v0.1
+# PaddleOCR v0.1
 
 基于 PaddleOCR 3.x 的在线文字识别系统，专注于快速、准确的OCR识别。
 
@@ -78,9 +78,14 @@ pip install -r requirements.txt --force-reinstall
 PaddlePaddle-OCR-v0.1/
 ├── app.py              # 主应用程序
 ├── requirements.txt    # 依赖包
+├── README.md          # 项目说明
+├── CHANGELOG.md       # 更新日志
+├── .gitignore         # Git忽略文件
 ├── templates/          # HTML模板
-├── static/            # CSS和JS文件
-└── README.md          # 项目说明
+│   └── index.html
+└── static/            # CSS和JS文件
+    ├── css/style.css
+    └── js/app.js
 ```
 
 ## 📊 性能表现
@@ -94,7 +99,9 @@ PaddlePaddle-OCR-v0.1/
 
 ## 📝 版本历史
 
-### v0.1.0 (2025-09-23)
+查看 [CHANGELOG.md](CHANGELOG.md) 获取详细的版本更新记录。
+
+### 当前版本：v0.1.0 (2025-09-23)
 - ✅ 基于PaddleOCR 3.x全面优化
 - ✅ 极速启动和识别
 - ✅ 现代化Web界面
