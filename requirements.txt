@@ -1,0 +1,18 @@
+# PaddlePaddle OCR v0.1 - 基于PaddleOCR 3.2.0优化版本
+
+# Web框架
+Flask>=3.1.0,<4.0.0
+Flask-CORS>=6.0.0,<7.0.0
+
+# OCR核心 - 使用PaddleOCR 3.2.0稳定版本
+paddlepaddle>=3.2.0,<3.3.0
+paddleocr>=3.2.0,<3.3.0
+
+# 图像处理 - 兼容性优化
+Pillow>=10.0.0,<12.0.0
+
+# 工具库 - 稳定版本
+numpy>=1.24.0,<2.0.0
+
+# 可选：CPU加速库（推荐安装）
+# mkl>=2023.0.0  # Intel MKL for CPU acceleration
