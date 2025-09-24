@@ -1,11 +1,105 @@
 let ocrReady = false;
 let checkInterval;
+let formatManager;
+let downloadManager;
 
 // 页面加载完成后开始检查状态
 document.addEventListener('DOMContentLoaded', function() {
     console.log('页面加载完成，开始检查系统状态');
+    initializeManagers();
+    initializeTooltips();
     checkSystemStatus();
 });
+
+// 初始化Bootstrap工具提示
+function initializeTooltips() {
+    // 初始化所有工具提示
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // 为动态添加的元素初始化工具提示
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            mutation.addedNodes.forEach(function(node) {
+                if (node.nodeType === 1) { // Element node
+                    const tooltips = node.querySelectorAll('[data-bs-toggle="tooltip"]');
+                    tooltips.forEach(function(tooltip) {
+                        new bootstrap.Tooltip(tooltip);
+                    });
+                }
+            });
+        });
+    });
+    
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+}
+
+// 初始化格式管理器和下载管理器
+function initializeManagers() {
+    // 动态加载模块
+    loadFormatManagers().then(() => {
+        console.log('格式管理器初始化完成');
+    }).catch(error => {
+        console.error('格式管理器初始化失败:', error);
+    });
+}
+
+// 加载格式管理器模块
+async function loadFormatManagers() {
+    try {
+        // 由于不是ES6模块环境，直接创建实例
+        if (typeof FormatManager !== 'undefined') {
+            formatManager = new FormatManager();
+        }
+        if (typeof DownloadManager !== 'undefined') {
+            downloadManager = new DownloadManager();
+        }
+        
+        // 如果类未定义，动态加载脚本
+        if (!formatManager || !downloadManager) {
+            await loadModuleScripts();
+        }
+    } catch (error) {
+        console.error('加载格式管理器失败:', error);
+    }
+}
+
+// 动态加载模块脚本
+function loadModuleScripts() {
+    return new Promise((resolve, reject) => {
+        let scriptsLoaded = 0;
+        const totalScripts = 2;
+        
+        function onScriptLoad() {
+            scriptsLoaded++;
+            if (scriptsLoaded === totalScripts) {
+                // 创建管理器实例
+                formatManager = new FormatManager();
+                downloadManager = new DownloadManager();
+                resolve();
+            }
+        }
+        
+        // 加载FormatManager
+        const formatScript = document.createElement('script');
+        formatScript.src = '/static/js/modules/format-manager.js';
+        formatScript.onload = onScriptLoad;
+        formatScript.onerror = () => reject(new Error('Failed to load format-manager.js'));
+        document.head.appendChild(formatScript);
+        
+        // 加载DownloadManager
+        const downloadScript = document.createElement('script');
+        downloadScript.src = '/static/js/modules/download-manager.js';
+        downloadScript.onload = onScriptLoad;
+        downloadScript.onerror = () => reject(new Error('Failed to load download-manager.js'));
+        document.head.appendChild(downloadScript);
+    });
+}
 
 async function checkSystemStatus() {
     try {
@@ -355,15 +449,302 @@ function showResult(text) {
     resultText.value = text;
     resultArea.style.display = 'block';
     
+    // 使用格式管理器设置原始文本
+    if (formatManager) {
+        formatManager.setOriginalText(text);
+    }
+    
+    // 初始化Markdown视图控制事件
+    initializeMarkdownViewControls();
+    
     // 滚动到结果区域
     resultArea.scrollIntoView({ behavior: 'smooth' });
 }
 
 function copyResult() {
+    let textToCopy = '';
+    let formatType = 'text';
+    
+    // 确定当前显示的格式和内容
+    if (formatManager && formatManager.getCurrentFormat) {
+        formatType = formatManager.getCurrentFormat();
+    }
+    
+    // 根据当前格式和视图状态确定要复制的内容
+    if (formatType === 'markdown') {
+        // 对于Markdown格式，始终复制原始markdown代码，而非渲染后的HTML
+        const currentView = getCurrentMarkdownView();
+        
+        if (currentView === 'preview' && isPreviewOnlyVisible()) {
+            // 如果只显示预览，从result-text获取原始markdown
+            const resultText = document.getElementById('result-text');
+            textToCopy = resultText ? resultText.value : '';
+        } else {
+            // 从markdown-raw或result-text获取原始代码
+            const markdownRaw = document.getElementById('markdown-raw');
+            const resultText = document.getElementById('result-text');
+            textToCopy = (markdownRaw && markdownRaw.value) || (resultText && resultText.value) || '';
+        }
+    } else {
+        // 对于纯文本格式，直接复制result-text的内容
+        const resultText = document.getElementById('result-text');
+        textToCopy = resultText ? resultText.value : '';
+    }
+    
+    if (textToCopy.trim()) {
+        // 使用现代的Clipboard API，如果不支持则回退到execCommand
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                showCopySuccess(formatType);
+            }).catch(error => {
+                console.warn('Clipboard API failed, falling back to execCommand:', error);
+                fallbackCopy(textToCopy, formatType);
+            });
+        } else {
+            fallbackCopy(textToCopy, formatType);
+        }
+    } else {
+        showCopyError('没有可复制的内容');
+    }
+}
+
+// 回退复制方法（使用execCommand）
+function fallbackCopy(text, formatType) {
+    try {
+        // 创建临时textarea元素
+        const tempTextarea = document.createElement('textarea');
+        tempTextarea.value = text;
+        tempTextarea.style.position = 'fixed';
+        tempTextarea.style.left = '-999999px';
+        tempTextarea.style.top = '-999999px';
+        document.body.appendChild(tempTextarea);
+        
+        tempTextarea.focus();
+        tempTextarea.select();
+        
+        const successful = document.execCommand('copy');
+        document.body.removeChild(tempTextarea);
+        
+        if (successful) {
+            showCopySuccess(formatType);
+        } else {
+            throw new Error('execCommand failed');
+        }
+    } catch (error) {
+        console.error('Copy failed:', error);
+        showCopyError('复制失败，请手动选择文本复制');
+    }
+}
+
+// 获取当前Markdown视图模式
+function getCurrentMarkdownView() {
+    const viewControls = document.querySelectorAll('input[name="markdown-view"]');
+    for (const control of viewControls) {
+        if (control.checked) {
+            return control.value;
+        }
+    }
+    return 'raw'; // 默认返回raw
+}
+
+// 检查是否只显示预览（preview模式且原始代码列隐藏）
+function isPreviewOnlyVisible() {
+    const markdownRawCol = document.querySelector('.markdown-raw-col');
+    return markdownRawCol && markdownRawCol.style.display === 'none';
+}
+
+// 显示复制成功提示
+function showCopySuccess(formatType = 'text') {
+    // 根据格式类型显示不同的提示信息
+    const formatMessages = {
+        'text': '纯文本已复制到剪贴板',
+        'markdown': 'Markdown代码已复制到剪贴板'
+    };
+    
+    const formatIcons = {
+        'text': 'fas fa-file-alt',
+        'markdown': 'fab fa-markdown'
+    };
+    
+    const message = formatMessages[formatType] || '内容已复制到剪贴板';
+    const icon = formatIcons[formatType] || 'fas fa-check';
+    
+    // 创建临时提示元素
+    const toast = document.createElement('div');
+    toast.className = 'alert alert-success alert-dismissible fade show position-fixed';
+    toast.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 250px;';
+    toast.innerHTML = `
+        <i class="${icon} me-2"></i>${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // 3秒后自动移除
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+        }
+    }, 3000);
+}
+
+// 显示复制错误提示
+function showCopyError(message) {
+    const toast = document.createElement('div');
+    toast.className = 'alert alert-warning alert-dismissible fade show position-fixed';
+    toast.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 250px;';
+    toast.innerHTML = `
+        <i class="fas fa-exclamation-triangle me-2"></i>${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // 5秒后自动移除（错误信息显示时间稍长）
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+        }
+    }, 5000);
+}
+
+// 初始化Markdown视图控制
+function initializeMarkdownViewControls() {
+    // 绑定Markdown视图切换事件
+    document.addEventListener('change', function(e) {
+        if (e.target.name === 'markdown-view') {
+            handleMarkdownViewSwitch(e.target.value);
+        }
+    });
+}
+
+// 处理Markdown视图切换
+function handleMarkdownViewSwitch(viewType) {
+    const textContent = document.querySelector('.text-content');
+    const markdownPreview = document.querySelector('.markdown-preview');
+    const markdownRawCol = document.querySelector('.markdown-raw-col');
+    const markdownRenderedCol = document.querySelector('.markdown-rendered-col');
+    
+    if (!textContent || !markdownPreview) return;
+    
+    switch (viewType) {
+        case 'raw':
+            // 显示原始代码
+            textContent.style.display = 'block';
+            markdownPreview.style.display = 'none';
+            break;
+            
+        case 'preview':
+            // 显示预览
+            textContent.style.display = 'none';
+            markdownPreview.style.display = 'block';
+            
+            // 隐藏原始代码列，只显示预览
+            if (markdownRawCol) markdownRawCol.style.display = 'none';
+            if (markdownRenderedCol) {
+                markdownRenderedCol.className = 'col-12';
+                markdownRenderedCol.style.display = 'block';
+            }
+            
+            renderMarkdownPreview();
+            break;
+            
+        case 'split':
+            // 并排显示
+            textContent.style.display = 'none';
+            markdownPreview.style.display = 'block';
+            
+            // 显示两列
+            if (markdownRawCol) {
+                markdownRawCol.className = 'col-md-6';
+                markdownRawCol.style.display = 'block';
+            }
+            if (markdownRenderedCol) {
+                markdownRenderedCol.className = 'col-md-6';
+                markdownRenderedCol.style.display = 'block';
+            }
+            
+            renderMarkdownPreview();
+            break;
+    }
+}
+
+// 渲染Markdown预览
+function renderMarkdownPreview() {
     const resultText = document.getElementById('result-text');
-    resultText.select();
-    document.execCommand('copy');
-    alert('结果已复制到剪贴板');
+    const markdownRaw = document.getElementById('markdown-raw');
+    const markdownRendered = document.getElementById('markdown-rendered');
+    
+    if (!resultText || !markdownRendered) return;
+    
+    const markdownContent = resultText.value;
+    
+    // 更新原始代码显示
+    if (markdownRaw) {
+        markdownRaw.value = markdownContent;
+    }
+    
+    // 简单的Markdown渲染（基础功能）
+    const htmlContent = renderBasicMarkdown(markdownContent);
+    markdownRendered.innerHTML = htmlContent;
+}
+
+// Markdown渲染器（优先使用marked库，否则使用基础渲染器）
+function renderBasicMarkdown(markdown) {
+    if (!markdown) return '';
+    
+    // 如果有marked库，使用它进行渲染
+    if (typeof marked !== 'undefined') {
+        try {
+            return marked.parse(markdown);
+        } catch (error) {
+            console.warn('Marked.js rendering failed, falling back to basic renderer:', error);
+        }
+    }
+    
+    // 基础Markdown渲染器（备用方案）
+    let html = markdown;
+    
+    // 转义HTML特殊字符
+    html = html.replace(/&/g, '&amp;')
+               .replace(/</g, '&lt;')
+               .replace(/>/g, '&gt;');
+    
+    // 标题
+    html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+    html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+    html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+    
+    // 粗体和斜体
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    
+    // 代码
+    html = html.replace(/`(.*?)`/g, '<code>$1</code>');
+    
+    // 链接
+    html = html.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+    
+    // 无序列表
+    html = html.replace(/^\- (.*$)/gim, '<li>$1</li>');
+    html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+    
+    // 有序列表
+    html = html.replace(/^\d+\. (.*$)/gim, '<li>$1</li>');
+    
+    // 段落
+    html = html.replace(/\n\n/g, '</p><p>');
+    html = '<p>' + html + '</p>';
+    
+    // 清理空段落
+    html = html.replace(/<p><\/p>/g, '');
+    html = html.replace(/<p>(<[uo]l>)/g, '$1');
+    html = html.replace(/(<\/[uo]l>)<\/p>/g, '$1');
+    
+    // 换行
+    html = html.replace(/\n/g, '<br>');
+    
+    return html;
 }
 
 function updateModelsInfo(modelsInfo) {
@@ -414,3 +795,46 @@ function updateModelsInfo(modelsInfo) {
 function showManualGuide() {
     alert('手动下载指南:\\n\\n1. 访问 PaddleOCR 官方网站\\n2. 下载中文模型文件\\n3. 解压到用户目录的 .paddleocr 文件夹\\n4. 重新初始化服务\\n\\n详细说明请查看项目文档。');
 }
+//
+// 测试格式转换功能
+function testFormatConversion() {
+    if (!formatManager) {
+        console.error('FormatManager not initialized');
+        return;
+    }
+    
+    const testText = `标题示例
+这是一个段落。
+
+另一个段落：
+- 列表项1
+- 列表项2
+- 列表项3
+
+1. 有序列表项1
+2. 有序列表项2`;
+    
+    console.log('Testing format conversion with text:', testText);
+    
+    // 测试转换为Markdown
+    formatManager.convertFormat(testText, 'markdown')
+        .then(result => {
+            console.log('Conversion result:', result);
+            if (result.success) {
+                console.log('Converted markdown:', result.data.content);
+            } else {
+                console.error('Conversion failed:', result.error);
+            }
+        })
+        .catch(error => {
+            console.error('Conversion error:', error);
+        });
+}
+
+// 在开发环境中暴露测试函数
+if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    window.testFormatConversion = testFormatConversion;
+    window.formatManager = () => formatManager;
+    window.downloadManager = () => downloadManager;
+}
+// 平衡括号 (添加开括号以修复语法检查

@@ -16,8 +16,15 @@ import threading
 import time
 import tempfile
 import uuid
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, send_file, abort
 from flask_cors import CORS
+
+# 导入格式转换相关模块
+from core import ExportManager
+from core.exceptions import (
+    FormatConversionError, UnsupportedFormatError, ValidationError,
+    FileOperationError, APIError, RequestValidationError
+)
 
 # 配置日志
 logging.basicConfig(
@@ -29,6 +36,9 @@ logging.basicConfig(
 ocr_service = None
 ocr_initializing = False
 ocr_init_error = None
+
+# 创建全局导出管理器实例
+export_manager = ExportManager()
 
 def create_app():
     """创建Flask应用"""
@@ -441,7 +451,8 @@ def process_ocr():
             'data': {
                 'text_content': text_content,
                 'line_count': len(text_lines),
-                'process_time': round(process_time, 2)
+                'process_time': round(process_time, 2),
+                'available_formats': export_manager.get_supported_formats()
             }
         })
     
@@ -459,6 +470,286 @@ def process_ocr():
                 os.unlink(temp_path)
             except Exception as cleanup_error:
                 logging.warning(f"清理临时文件失败: {cleanup_error}")
+
+@app.route('/api/convert-format', methods=['POST'])
+def convert_format():
+    """格式转换API端点
+    
+    接受JSON请求，包含以下字段：
+    - text: 要转换的原始文本
+    - target_format: 目标格式 ('text' 或 'markdown')
+    
+    返回转换结果或错误信息
+    """
+    try:
+        # 检查请求内容类型
+        if not request.is_json:
+            return jsonify({
+                'success': False,
+                'error': {
+                    'message': 'Request must be JSON',
+                    'code': 'INVALID_CONTENT_TYPE'
+                }
+            }), 400
+        
+        # 获取请求数据
+        try:
+            data = request.get_json()
+        except Exception as json_error:
+            return jsonify({
+                'success': False,
+                'error': {
+                    'message': 'Invalid JSON in request body',
+                    'code': 'INVALID_JSON',
+                    'details': str(json_error)
+                }
+            }), 400
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': {
+                    'message': 'Request body is empty or invalid JSON',
+                    'code': 'EMPTY_REQUEST_BODY'
+                }
+            }), 400
+        
+        # 提取参数
+        text = data.get('text', '')
+        target_format = data.get('target_format', 'text')
+        
+        # 验证请求参数
+        validation_result = export_manager.validate_conversion_request(text, target_format)
+        if not validation_result['valid']:
+            raise RequestValidationError(
+                message='Invalid request parameters',
+                validation_errors=validation_result['errors']
+            )
+        
+        # 如果有警告，记录到日志
+        if validation_result['warnings']:
+            for warning in validation_result['warnings']:
+                logging.warning(f"Format conversion warning: {warning}")
+        
+        # 执行格式转换
+        result = export_manager.convert_format(text, target_format)
+        
+        # 构建响应
+        response_data = {
+            'success': True,
+            'data': {
+                'original_text': result['original_text'],
+                'converted_text': result['content'],
+                'source_format': 'text',
+                'target_format': result['format'],
+                'conversion_time': result['conversion_time']
+            }
+        }
+        
+        # 添加结构信息（如果有）
+        if 'structure_info' in result:
+            response_data['data']['structure_info'] = result['structure_info']
+        
+        # 添加错误信息（如果有回退）
+        if 'error' in result:
+            response_data['data']['fallback_info'] = result['error']
+            logging.warning(f"Format conversion fallback applied: {result['error']['message']}")
+        
+        return jsonify(response_data)
+        
+    except RequestValidationError as e:
+        # 请求验证错误
+        logging.error(f"Format conversion validation error: {e}")
+        return jsonify({
+            'success': False,
+            'error': e.to_dict()
+        }), e.status_code
+        
+    except ValidationError as e:
+        # 参数验证错误
+        logging.error(f"Format conversion validation error: {e}")
+        return jsonify({
+            'success': False,
+            'error': e.to_dict()
+        }), 400
+        
+    except UnsupportedFormatError as e:
+        # 不支持的格式错误
+        logging.error(f"Format conversion unsupported format: {e}")
+        return jsonify({
+            'success': False,
+            'error': e.to_dict()
+        }), 400
+        
+    except FormatConversionError as e:
+        # 格式转换错误
+        logging.error(f"Format conversion error: {e}")
+        return jsonify({
+            'success': False,
+            'error': e.to_dict()
+        }), 400
+        
+    except Exception as e:
+        # 其他未预期的错误
+        logging.error(f"Format conversion unexpected error: {e}")
+        return jsonify({
+            'success': False,
+            'error': {
+                'message': 'Internal server error during format conversion',
+                'code': 'INTERNAL_ERROR',
+                'details': str(e) if app.debug else None,
+                'type': 'Exception'
+            }
+        }), 500
+
+@app.route('/api/download-result', methods=['POST'])
+def download_result():
+    """文件下载API端点
+    
+    接受JSON请求，包含以下字段：
+    - content: 要下载的文件内容
+    - format: 文件格式 ('text' 或 'markdown')
+    - filename: 可选的文件名
+    
+    返回文件下载响应
+    """
+    try:
+        # 检查请求内容类型
+        if not request.is_json:
+            return jsonify({
+                'success': False,
+                'error': {
+                    'message': 'Request must be JSON',
+                    'code': 'INVALID_CONTENT_TYPE'
+                }
+            }), 400
+        
+        # 获取请求数据
+        try:
+            data = request.get_json()
+        except Exception as json_error:
+            return jsonify({
+                'success': False,
+                'error': {
+                    'message': 'Invalid JSON in request body',
+                    'code': 'INVALID_JSON',
+                    'details': str(json_error)
+                }
+            }), 400
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': {
+                    'message': 'Request body is empty or invalid JSON',
+                    'code': 'EMPTY_REQUEST_BODY'
+                }
+            }), 400
+        
+        # 提取参数
+        content = data.get('content', '')
+        format_type = data.get('format', 'text')
+        filename = data.get('filename', None)
+        
+        # 验证参数
+        if not isinstance(content, str):
+            raise ValidationError("Content must be a string", field_name="content", field_value=type(content).__name__)
+        
+        if not content.strip():
+            raise ValidationError("Content cannot be empty", field_name="content")
+        
+        if not isinstance(format_type, str):
+            raise ValidationError("Format must be a string", field_name="format", field_value=type(format_type).__name__)
+        
+        # 检查格式是否支持
+        if not export_manager.is_format_supported(format_type):
+            raise UnsupportedFormatError(format_type, export_manager.get_supported_formats())
+        
+        # 创建下载文件
+        file_info = export_manager.create_download_file(content, format_type, filename)
+        
+        # 检查文件是否存在
+        if not os.path.exists(file_info['filepath']):
+            return jsonify({
+                'success': False,
+                'error': {
+                    'message': 'Download file was not created successfully',
+                    'code': 'FILE_NOT_FOUND'
+                }
+            }), 500
+        
+        try:
+            # 发送文件
+            response = send_file(
+                file_info['filepath'],
+                as_attachment=True,
+                download_name=file_info['filename'],
+                mimetype=file_info['content_type']
+            )
+            
+            # 添加自定义响应头
+            response.headers['Content-Length'] = file_info['file_size']
+            response.headers['X-File-Format'] = file_info['format']
+            response.headers['X-Generated-Timestamp'] = str(int(time.time()))
+            
+            # 设置文件清理回调（在响应发送后清理临时文件）
+            @response.call_on_close
+            def cleanup_temp_file():
+                try:
+                    export_manager.cleanup_download_file(file_info['filepath'])
+                    logging.info(f"Cleaned up temporary file: {file_info['filename']}")
+                except Exception as cleanup_error:
+                    logging.warning(f"Failed to cleanup temporary file: {cleanup_error}")
+            
+            return response
+            
+        except Exception as send_error:
+            # 如果发送失败，清理临时文件
+            export_manager.cleanup_download_file(file_info['filepath'])
+            logging.error(f"File send error: {send_error}")
+            raise FileOperationError(
+                message="Failed to send download file",
+                operation="send_file",
+                filepath=file_info['filepath'],
+                original_error=send_error
+            )
+        
+    except ValidationError as e:
+        # 验证错误
+        logging.error(f"Download validation error: {e}")
+        return jsonify({
+            'success': False,
+            'error': e.to_dict()
+        }), 400
+        
+    except UnsupportedFormatError as e:
+        # 不支持的格式错误
+        logging.error(f"Download unsupported format: {e}")
+        return jsonify({
+            'success': False,
+            'error': e.to_dict()
+        }), 400
+        
+    except FileOperationError as e:
+        # 文件操作错误
+        logging.error(f"Download file operation error: {e}")
+        return jsonify({
+            'success': False,
+            'error': e.to_dict()
+        }), 500
+        
+    except Exception as e:
+        # 其他未预期的错误
+        logging.error(f"Download API unexpected error: {e}")
+        return jsonify({
+            'success': False,
+            'error': {
+                'message': 'Internal server error during file download',
+                'code': 'INTERNAL_ERROR',
+                'details': str(e) if app.debug else None,
+                'type': 'Exception'
+            }
+        }), 500
 
 @app.route('/health')
 def health():

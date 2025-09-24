@@ -81,3 +81,568 @@
         padding: 0 15px;
     }
 }
+/* 格式选择器样式 
+*/
+.format-selector {
+    position: relative;
+}
+
+.format-selector.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: -25px;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #0d6efd;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 格式控制区域样式 */
+.format-controls {
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    padding: 10px;
+    border: 1px solid #dee2e6;
+}
+
+.markdown-view-controls {
+    display: inline-block;
+}
+
+.download-controls {
+    display: inline-block;
+}
+
+/* 结果显示区域样式 */
+.result-display {
+    position: relative;
+}
+
+.text-content textarea {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    resize: vertical;
+}
+
+/* Markdown预览样式 */
+.markdown-preview {
+    margin-top: 10px;
+}
+
+.markdown-raw-col textarea {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.4;
+    resize: vertical;
+}
+
+.markdown-content {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #333;
+    overflow-y: auto;
+    max-height: 400px;
+}
+
+/* Markdown渲染内容样式 */
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+.markdown-content h1 {
+    font-size: 1.5em;
+    border-bottom: 1px solid #eaecef;
+    padding-bottom: 0.3em;
+}
+
+.markdown-content h2 {
+    font-size: 1.25em;
+    border-bottom: 1px solid #eaecef;
+    padding-bottom: 0.3em;
+}
+
+.markdown-content h3 {
+    font-size: 1.1em;
+}
+
+.markdown-content p {
+    margin-bottom: 1em;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+    margin-bottom: 1em;
+    padding-left: 2em;
+}
+
+.markdown-content li {
+    margin-bottom: 0.25em;
+}
+
+.markdown-content code {
+    background-color: rgba(175, 184, 193, 0.2);
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 85%;
+}
+
+.markdown-content pre {
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    padding: 16px;
+    overflow: auto;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 85%;
+    line-height: 1.45;
+}
+
+.markdown-content blockquote {
+    border-left: 4px solid #dfe2e5;
+    padding-left: 1em;
+    margin-left: 0;
+    color: #6a737d;
+}
+
+.markdown-content table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 1em;
+}
+
+.markdown-content th,
+.markdown-content td {
+    border: 1px solid #dfe2e5;
+    padding: 6px 13px;
+}
+
+.markdown-content th {
+    background-color: #f6f8fa;
+    font-weight: 600;
+}
+
+/* 下载按钮样式 */
+.download-btn {
+    transition: all 0.2s ease;
+    font-weight: 500;
+    border-radius: 4px;
+}
+
+.download-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.download-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.download-btn i {
+    opacity: 0.9;
+}
+
+.download-btn:hover i {
+    opacity: 1;
+}
+
+/* 错误和成功消息样式 */
+.alert {
+    border-radius: 6px;
+    border: none;
+    font-size: 14px;
+}
+
+.alert-dismissible .btn-close {
+    padding: 0.5rem 0.75rem;
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+    .format-controls {
+        padding: 8px;
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .format-controls .btn-group {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        margin-bottom: 10px;
+    }
+    
+    .format-controls .btn-group .btn {
+        border-radius: 4px !important;
+        margin-bottom: 5px;
+        padding: 8px 12px;
+        font-size: 14px;
+    }
+    
+    .download-controls {
+        float: none !important;
+        margin-top: 10px;
+        text-align: center;
+        width: 100%;
+    }
+    
+    .download-controls .btn-group {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        gap: 5px;
+    }
+    
+    .download-controls .btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .markdown-preview .row {
+        margin: 0;
+    }
+    
+    .markdown-preview .col-md-6 {
+        padding: 0 5px;
+        margin-bottom: 15px;
+    }
+    
+    .markdown-raw-col,
+    .markdown-rendered-col {
+        width: 100%;
+    }
+    
+    .markdown-content {
+        max-height: 200px;
+        font-size: 13px;
+    }
+    
+    /* 移动端格式选择器优化 */
+    .format-selector {
+        margin-bottom: 15px;
+    }
+    
+    .format-selector .btn-group {
+        width: 100%;
+        display: flex;
+    }
+    
+    .format-selector .btn {
+        flex: 1;
+        padding: 10px 8px;
+        font-size: 13px;
+        border-radius: 6px !important;
+        margin: 0 2px;
+    }
+    
+    /* 移动端Markdown视图控制优化 */
+    .markdown-view-controls {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+    
+    .markdown-view-controls .btn-group {
+        width: 100%;
+        display: flex;
+    }
+    
+    .markdown-view-controls .btn {
+        flex: 1;
+        padding: 6px 4px;
+        font-size: 12px;
+        border-radius: 4px !important;
+        margin: 0 1px;
+    }
+    
+    /* 移动端结果区域优化 */
+    #result-text {
+        font-size: 13px;
+        min-height: 150px;
+    }
+    
+    /* 移动端加载覆盖层优化 */
+    .loading-overlay {
+        border-radius: 4px;
+    }
+    
+    .loading-overlay .loading-message {
+        font-size: 12px;
+    }
+    
+    .loading-overlay .progress {
+        width: 150px !important;
+        height: 3px !important;
+    }
+}
+
+@media (max-width: 576px) {
+    /* 超小屏幕优化 */
+    .container {
+        padding: 0 10px;
+    }
+    
+    .card {
+        margin-bottom: 15px;
+    }
+    
+    .card-body {
+        padding: 15px;
+    }
+    
+    .format-selector .btn {
+        padding: 12px 8px;
+        font-size: 14px;
+        font-weight: 500;
+    }
+    
+    .format-selector .btn i {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 16px;
+    }
+    
+    .markdown-view-controls .btn {
+        padding: 8px 4px;
+        font-size: 11px;
+        line-height: 1.2;
+    }
+    
+    .markdown-view-controls .btn i {
+        display: block;
+        margin-bottom: 2px;
+        font-size: 12px;
+    }
+    
+    .download-controls .btn {
+        padding: 10px;
+        font-size: 13px;
+        margin-bottom: 5px;
+    }
+    
+    .download-controls .btn i {
+        margin-right: 6px;
+    }
+    
+    /* 超小屏幕文本区域优化 */
+    #result-text {
+        font-size: 12px;
+        line-height: 1.4;
+        min-height: 120px;
+    }
+    
+    .markdown-content {
+        font-size: 12px;
+        line-height: 1.5;
+        max-height: 150px;
+    }
+    
+    /* 超小屏幕快捷键提示优化 */
+    .shortcut-feedback {
+        top: 10px !important;
+        right: 10px !important;
+        left: 10px !important;
+        text-align: center;
+        font-size: 12px !important;
+        padding: 6px 12px !important;
+    }
+}
+
+/* 触摸设备优化 */
+@media (hover: none) and (pointer: coarse) {
+    .btn {
+        min-height: 44px; /* 触摸友好的最小高度 */
+        padding: 10px 16px;
+    }
+    
+    .btn-sm {
+        min-height: 36px;
+        padding: 8px 12px;
+    }
+    
+    .format-selector .btn {
+        min-height: 48px;
+        padding: 12px 16px;
+    }
+    
+    .download-btn {
+        min-height: 44px;
+        padding: 10px 16px;
+    }
+    
+    /* 触摸设备上的悬停效果调整 */
+    .btn:hover {
+        transform: none;
+        box-shadow: none;
+    }
+    
+    .download-btn:hover {
+        transform: none;
+        box-shadow: none;
+    }
+    
+    /* 触摸反馈 */
+    .btn:active {
+        transform: scale(0.98);
+        transition: transform 0.1s ease;
+    }
+}
+
+/* 加载状态样式 */
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    z-index: 10;
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #0d6efd;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* 优化现有样式 */
+#result-text {
+    transition: all 0.3s ease;
+}
+
+#result-text:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* 工具提示样式增强 */
+[title] {
+    cursor: help;
+}
+
+/* 清除浮动 */
+.clearfix::after {
+    content: "";
+    display: table;
+    clear: both;
+}
+
+/* 快捷键反馈动画 */
+@keyframes fadeInOut {
+    0% {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    20% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    80% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+}
+
+.shortcut-feedback {
+    animation: fadeInOut 2s ease-in-out;
+}
+
+/* 键盘导航优化 */
+.btn:focus,
+input[type="radio"]:focus + label {
+    outline: 2px solid #0d6efd;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* 高对比度模式支持 */
+@media (prefers-contrast: high) {
+    .btn-outline-primary {
+        border-width: 2px;
+    }
+    
+    .format-selector.loading::after {
+        border-width: 3px;
+    }
+    
+    .loading-spinner {
+        border-width: 4px;
+    }
+}
+
+/* 减少动画偏好支持 */
+@media (prefers-reduced-motion: reduce) {
+    .upload-area,
+    .btn,
+    .download-btn,
+    .progress-bar,
+    #result-text {
+        transition: none;
+    }
+    
+    .spinner-border,
+    .loading-spinner,
+    .format-selector.loading::after {
+        animation: none;
+    }
+    
+    .shortcut-feedback {
+        animation: none;
+        opacity: 1;
+    }
+    
+    .progress-bar-animated {
+        animation: none;
+    }
+}
+
+/* 深色模式支持（如果系统支持） */
+@media (prefers-color-scheme: dark) {
+    .markdown-content {
+        background-color: #2d3748;
+        color: #e2e8f0;
+        border-color: #4a5568;
+    }
+    
+    .format-controls {
+        background-color: #2d3748;
+        border-color: #4a5568;
+    }
+    
+    .loading-overlay {
+        background-color: rgba(45, 55, 72, 0.9);
+    }
+    
+    .shortcut-feedback {
+        background: rgba(66, 153, 225, 0.9);
+    }
+}

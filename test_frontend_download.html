@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>下载功能测试</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="static/css/style.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="fas fa-download me-2"></i>下载功能测试</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- 模拟结果区域 -->
+                        <div id="result-area">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0">测试内容:</h6>
+                            </div>
+                            
+                            <!-- 格式控制区域 -->
+                            <div class="format-controls mb-3">
+                                <!-- 下载控制区域 -->
+                                <div class="download-controls float-end">
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-success download-btn" data-format="text" title="下载纯文本文件">
+                                            <i class="fas fa-download me-1"></i>下载 TXT
+                                        </button>
+                                        <button class="btn btn-success download-btn" data-format="markdown" title="下载Markdown文件">
+                                            <i class="fas fa-download me-1"></i>下载 MD
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="clearfix"></div>
+                            </div>
+                            
+                            <!-- 文本显示区域 -->
+                            <div class="result-display">
+                                <div class="text-content">
+                                    <textarea class="form-control" id="result-text" rows="10">测试文档
+
+这是一个测试文档，用于验证下载功能。
+
+## 功能特点
+- 支持纯文本格式
+- 支持Markdown格式
+- 自动生成文件名
+- 完整的错误处理
+
+### 测试说明
+点击上方的下载按钮测试下载功能。
+
+感谢使用 PaddleOCR 系统！</textarea>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-3">
+                                <button class="btn btn-primary btn-sm" onclick="testDownloadManager()">
+                                    <i class="fas fa-play me-1"></i>运行测试
+                                </button>
+                                <button class="btn btn-secondary btn-sm" onclick="clearMessages()">
+                                    <i class="fas fa-eraser me-1"></i>清除消息
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>测试说明</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <h6>测试步骤</h6>
+                            <ol class="small">
+                                <li>点击"下载 TXT"按钮测试纯文本下载</li>
+                                <li>点击"下载 MD"按钮测试Markdown下载</li>
+                                <li>检查下载的文件内容是否正确</li>
+                                <li>验证文件名格式是否符合预期</li>
+                            </ol>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <h6>预期结果</h6>
+                            <ul class="small">
+                                <li>文件能够正常下载</li>
+                                <li>文件名包含时间戳</li>
+                                <li>文件内容与显示内容一致</li>
+                                <li>显示成功提示消息</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="alert alert-info small">
+                            <i class="fas fa-lightbulb me-1"></i>
+                            <strong>提示:</strong> 确保后端服务正在运行以测试API下载功能。
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="static/js/modules/download-manager.js"></script>
+    <script>
+        let downloadManager;
+        
+        // 初始化下载管理器
+        document.addEventListener('DOMContentLoaded', function() {
+            downloadManager = new DownloadManager();
+            console.log('下载管理器已初始化');
+        });
+        
+        // 测试下载管理器
+        function testDownloadManager() {
+            if (!downloadManager) {
+                alert('下载管理器未初始化');
+                return;
+            }
+            
+            console.log('开始测试下载功能...');
+            
+            // 测试纯文本下载
+            setTimeout(() => {
+                console.log('测试纯文本下载');
+                downloadManager.testDownload('text');
+            }, 500);
+            
+            // 测试Markdown下载
+            setTimeout(() => {
+                console.log('测试Markdown下载');
+                downloadManager.testDownload('markdown');
+            }, 1500);
+        }
+        
+        // 清除消息
+        function clearMessages() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                if (alert.parentNode) {
+                    alert.parentNode.removeChild(alert);
+                }
+            });
+        }
+    </script>
+</body>
+</html>

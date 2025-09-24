@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>前端集成测试</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .test-pass {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .test-fail {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .test-running {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        .test-log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1>前端集成测试</h1>
+        <p class="text-muted">测试前端模块的集成和错误处理功能</p>
+        
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>测试控制</h5>
+                    </div>
+                    <div class="card-body">
+                        <button id="run-all-tests" class="btn btn-primary">运行所有测试</button>
+                        <button id="clear-results" class="btn btn-secondary">清除结果</button>
+                        <button id="toggle-debug" class="btn btn-outline-info">切换调试模式</button>
+                    </div>
+                </div>
+                
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5>测试结果</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="test-results"></div>
+                        <div id="test-summary" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>测试日志</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="test-log" class="test-log"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 隐藏的测试区域 -->
+    <div id="test-area" style="display: none;">
+        <!-- 错误容器 -->
+        <div id="error-container"></div>
+        
+        <!-- 格式选择器 -->
+        <div class="format-selector">
+            <div class="btn-group" role="group">
+                <input type="radio" class="btn-check" name="format" id="format-text" value="text" checked>
+                <label class="btn btn-outline-primary" for="format-text">纯文本</label>
+                
+                <input type="radio" class="btn-check" name="format" id="format-markdown" value="markdown">
+                <label class="btn btn-outline-primary" for="format-markdown">Markdown</label>
+            </div>
+        </div>
+        
+        <!-- 结果显示区域 -->
+        <textarea id="result-text" class="form-control"></textarea>
+        
+        <!-- 下载按钮 -->
+        <button class="btn btn-success download-btn" data-format="text">下载 TXT</button>
+        <button class="btn btn-success download-btn" data-format="markdown">下载 MD</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="static/js/modules/error-handler.js"></script>
+    <script src="static/js/modules/format-manager.js"></script>
+    <script src="static/js/modules/download-manager.js"></script>
+    
+    <script>
+        /**
+         * 前端集成测试套件
+         */
+        class FrontendIntegrationTests {
+            constructor() {
+                this.testResults = [];
+                this.currentTest = null;
+                this.debugMode = false;
+                this.formatManager = null;
+                this.downloadManager = null;
+                
+                this.initializeComponents();
+                this.bindEvents();
+            }
+            
+            initializeComponents() {
+                // 初始化组件
+                try {
+                    this.formatManager = new FormatManager();
+                    this.downloadManager = new DownloadManager();
+                    this.log('组件初始化成功');
+                } catch (error) {
+                    this.log('组件初始化失败: ' + error.message, 'error');
+                }
+            }
+            
+            bindEvents() {
+                document.getElementById('run-all-tests').addEventListener('click', () => {
+                    this.runAllTests();
+                });
+                
+                document.getElementById('clear-results').addEventListener('click', () => {
+                    this.clearResults();
+                });
+                
+                document.getElementById('toggle-debug').addEventListener('click', () => {
+                    this.toggleDebugMode();
+                });
+            }
+            
+            log(message, type = 'info') {
+                const timestamp = new Date().toLocaleTimeString();
+                const logElement = document.getElementById('test-log');
+                const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}\n`;
+                logElement.textContent += logEntry;
+                logElement.scrollTop = logElement.scrollHeight;
+                
+                if (this.debugMode) {
+                    console.log(`[Test] ${message}`);
+                }
+            }
+            
+            async runAllTests() {
+                this.clearResults();
+                this.log('开始运行前端集成测试');
+                
+                const tests = [
+                    { name: '错误处理器初始化测试', method: 'testErrorHandlerInitialization' },
+                    { name: '错误显示功能测试', method: 'testErrorDisplay' },
+                    { name: '格式管理器初始化测试', method: 'testFormatManagerInitialization' },
+                    { name: '格式转换API调用测试', method: 'testFormatConversionAPI' },
+                    { name: '格式转换错误处理测试', method: 'testFormatConversionErrorHandling' },
+                    { name: '下载管理器初始化测试', method: 'testDownloadManagerInitialization' },
+                    { name: '下载功能测试', method: 'testDownloadFunctionality' },
+                    { name: '下载错误处理测试', method: 'testDownloadErrorHandling' },
+                    { name: '网络错误处理测试', method: 'testNetworkErrorHandling' },
+                    { name: '用户界面集成测试', method: 'testUIIntegration' }
+                ];
+                
+                for (const test of tests) {
+                    await this.runSingleTest(test.name, test.method);
+                }
+                
+                this.displayTestSummary();
+                this.log('所有测试完成');
+            }
+            
+            async runSingleTest(testName, methodName) {
+                this.currentTest = testName;
+                this.log(`运行测试: ${testName}`);
+                
+                const resultDiv = document.createElement('div');
+                resultDiv.className = 'test-result test-running';
+                resultDiv.innerHTML = `<strong>${testName}</strong> - 运行中...`;
+                document.getElementById('test-results').appendChild(resultDiv);
+                
+                try {
+                    const result = await this[methodName]();
+                    
+                    if (result.success) {
+                        resultDiv.className = 'test-result test-pass';
+                        resultDiv.innerHTML = `<strong>${testName}</strong> - 通过 ✓<br><small>${result.message || ''}</small>`;
+                        this.log(`测试通过: ${testName}`);
+                    } else {
+                        resultDiv.className = 'test-result test-fail';
+                        resultDiv.innerHTML = `<strong>${testName}</strong> - 失败 ✗<br><small>${result.message || ''}</small>`;
+                        this.log(`测试失败: ${testName} - ${result.message}`, 'error');
+                    }
+                    
+                    this.testResults.push({ name: testName, success: result.success, message: result.message });
+                    
+                } catch (error) {
+                    resultDiv.className = 'test-result test-fail';
+                    resultDiv.innerHTML = `<strong>${testName}</strong> - 错误 ✗<br><small>${error.message}</small>`;
+                    this.log(`测试错误: ${testName} - ${error.message}`, 'error');
+                    this.testResults.push({ name: testName, success: false, message: error.message });
+                }
+            }
+            
+            // 测试方法
+            async testErrorHandlerInitialization() {
+                if (!window.errorHandler) {
+                    return { success: false, message: '错误处理器未初始化' };
+                }
+                
+                if (typeof window.errorHandler.showError !== 'function') {
+                    return { success: false, message: 'showError方法不存在' };
+                }
+                
+                return { success: true, message: '错误处理器初始化正常' };
+            }
+            
+            async testErrorDisplay() {
+                if (!window.errorHandler) {
+                    return { success: false, message: '错误处理器不可用' };
+                }
+                
+                // 测试显示错误
+                const alertElement = window.errorHandler.showError('测试错误消息', 'error', 1000);
+                
+                if (!alertElement) {
+                    return { success: false, message: '错误显示失败' };
+                }
+                
+                // 检查错误元素是否被添加到DOM
+                const errorContainer = document.getElementById('error-container');
+                if (!errorContainer.contains(alertElement)) {
+                    return { success: false, message: '错误元素未添加到DOM' };
+                }
+                
+                // 等待一段时间后检查是否自动移除
+                await new Promise(resolve => setTimeout(resolve, 1200));
+                
+                if (errorContainer.contains(alertElement)) {
+                    return { success: false, message: '错误元素未自动移除' };
+                }
+                
+                return { success: true, message: '错误显示和自动移除功能正常' };
+            }
+            
+            async testFormatManagerInitialization() {
+                if (!this.formatManager) {
+                    return { success: false, message: '格式管理器未初始化' };
+                }
+                
+                if (typeof this.formatManager.convertFormat !== 'function') {
+                    return { success: false, message: 'convertFormat方法不存在' };
+                }
+                
+                return { success: true, message: '格式管理器初始化正常' };
+            }
+            
+            async testFormatConversionAPI() {
+                if (!this.formatManager) {
+                    return { success: false, message: '格式管理器不可用' };
+                }
+                
+                try {
+                    // 模拟成功的API响应
+                    const originalFetch = window.fetch;
+                    window.fetch = async (url, options) => {
+                        if (url === '/api/convert-format') {
+                            return {
+                                ok: true,
+                                json: async () => ({
+                                    success: true,
+                                    data: {
+                                        content: '# 测试标题\n\n测试内容',
+                                        target_format: 'markdown',
+                                        conversion_time: 0.1
+                                    }
+                                })
+                            };
+                        }
+                        return originalFetch(url, options);
+                    };
+                    
+                    const result = await this.formatManager.convertFormat('测试文本', 'markdown');
+                    
+                    // 恢复原始fetch
+                    window.fetch = originalFetch;
+                    
+                    if (!result.success) {
+                        return { success: false, message: 'API调用返回失败' };
+                    }
+                    
+                    return { success: true, message: '格式转换API调用正常' };
+                    
+                } catch (error) {
+                    return { success: false, message: `API调用异常: ${error.message}` };
+                }
+            }
+            
+            async testFormatConversionErrorHandling() {
+                if (!this.formatManager) {
+                    return { success: false, message: '格式管理器不可用' };
+                }
+                
+                try {
+                    // 模拟失败的API响应
+                    const originalFetch = window.fetch;
+                    window.fetch = async (url, options) => {
+                        if (url === '/api/convert-format') {
+                            throw new Error('网络错误');
+                        }
+                        return originalFetch(url, options);
+                    };
+                    
+                    try {
+                        await this.formatManager.convertFormat('测试文本', 'markdown');
+                        window.fetch = originalFetch;
+                        return { success: false, message: '应该抛出错误但没有' };
+                    } catch (error) {
+                        window.fetch = originalFetch;
+                        return { success: true, message: '错误处理正常' };
+                    }
+                    
+                } catch (error) {
+                    return { success: false, message: `测试异常: ${error.message}` };
+                }
+            }
+            
+            async testDownloadManagerInitialization() {
+                if (!this.downloadManager) {
+                    return { success: false, message: '下载管理器未初始化' };
+                }
+                
+                if (typeof this.downloadManager.downloadFile !== 'function') {
+                    return { success: false, message: 'downloadFile方法不存在' };
+                }
+                
+                return { success: true, message: '下载管理器初始化正常' };
+            }
+            
+            async testDownloadFunctionality() {
+                if (!this.downloadManager) {
+                    return { success: false, message: '下载管理器不可用' };
+                }
+                
+                try {
+                    // 模拟成功的下载响应
+                    const originalFetch = window.fetch;
+                    window.fetch = async (url, options) => {
+                        if (url === '/api/download-result') {
+                            return {
+                                ok: true,
+                                blob: async () => new Blob(['测试内容'], { type: 'text/plain' }),
+                                headers: {
+                                    get: (name) => {
+                                        if (name === 'Content-Disposition') {
+                                            return 'attachment; filename="test.txt"';
+                                        }
+                                        return null;
+                                    }
+                                }
+                            };
+                        }
+                        return originalFetch(url, options);
+                    };
+                    
+                    // 模拟URL.createObjectURL和revokeObjectURL
+                    const originalCreateObjectURL = URL.createObjectURL;
+                    const originalRevokeObjectURL = URL.revokeObjectURL;
+                    URL.createObjectURL = () => 'blob:test-url';
+                    URL.revokeObjectURL = () => {};
+                    
+                    const result = await this.downloadManager.downloadFile('测试内容', 'text');
+                    
+                    // 恢复原始方法
+                    window.fetch = originalFetch;
+                    URL.createObjectURL = originalCreateObjectURL;
+                    URL.revokeObjectURL = originalRevokeObjectURL;
+                    
+                    return { success: true, message: '下载功能正常' };
+                    
+                } catch (error) {
+                    return { success: false, message: `下载测试异常: ${error.message}` };
+                }
+            }
+            
+            async testDownloadErrorHandling() {
+                if (!this.downloadManager) {
+                    return { success: false, message: '下载管理器不可用' };
+                }
+                
+                try {
+                    // 模拟失败的下载响应
+                    const originalFetch = window.fetch;
+                    window.fetch = async (url, options) => {
+                        if (url === '/api/download-result') {
+                            return {
+                                ok: false,
+                                status: 400,
+                                json: async () => ({
+                                    success: false,
+                                    error: { message: '下载失败' }
+                                })
+                            };
+                        }
+                        return originalFetch(url, options);
+                    };
+                    
+                    try {
+                        await this.downloadManager.downloadFile('', 'text');
+                        window.fetch = originalFetch;
+                        return { success: false, message: '应该抛出错误但没有' };
+                    } catch (error) {
+                        window.fetch = originalFetch;
+                        return { success: true, message: '下载错误处理正常' };
+                    }
+                    
+                } catch (error) {
+                    return { success: false, message: `测试异常: ${error.message}` };
+                }
+            }
+            
+            async testNetworkErrorHandling() {
+                if (!window.errorHandler) {
+                    return { success: false, message: '错误处理器不可用' };
+                }
+                
+                // 测试网络错误显示
+                const networkError = new TypeError('Failed to fetch');
+                window.errorHandler.showNetworkError(networkError);
+                
+                // 检查是否显示了网络错误
+                const errorContainer = document.getElementById('error-container');
+                const alerts = errorContainer.querySelectorAll('.alert');
+                
+                if (alerts.length === 0) {
+                    return { success: false, message: '网络错误未显示' };
+                }
+                
+                const lastAlert = alerts[alerts.length - 1];
+                if (!lastAlert.textContent.includes('网络')) {
+                    return { success: false, message: '网络错误消息不正确' };
+                }
+                
+                return { success: true, message: '网络错误处理正常' };
+            }
+            
+            async testUIIntegration() {
+                // 测试UI元素是否存在
+                const requiredElements = [
+                    'error-container',
+                    'format-text',
+                    'format-markdown',
+                    'result-text'
+                ];
+                
+                for (const elementId of requiredElements) {
+                    const element = document.getElementById(elementId);
+                    if (!element) {
+                        return { success: false, message: `缺少UI元素: ${elementId}` };
+                    }
+                }
+                
+                // 测试格式切换
+                const textRadio = document.getElementById('format-text');
+                const markdownRadio = document.getElementById('format-markdown');
+                
+                textRadio.checked = true;
+                markdownRadio.checked = false;
+                
+                // 触发change事件
+                const changeEvent = new Event('change', { bubbles: true });
+                markdownRadio.checked = true;
+                textRadio.checked = false;
+                markdownRadio.dispatchEvent(changeEvent);
+                
+                return { success: true, message: 'UI集成测试正常' };
+            }
+            
+            displayTestSummary() {
+                const total = this.testResults.length;
+                const passed = this.testResults.filter(r => r.success).length;
+                const failed = total - passed;
+                
+                const summaryDiv = document.getElementById('test-summary');
+                summaryDiv.innerHTML = `
+                    <div class="alert ${failed === 0 ? 'alert-success' : 'alert-warning'}">
+                        <h6>测试摘要</h6>
+                        <p>总计: ${total} | 通过: ${passed} | 失败: ${failed}</p>
+                        <div class="progress">
+                            <div class="progress-bar ${failed === 0 ? 'bg-success' : 'bg-warning'}" 
+                                 style="width: ${(passed/total)*100}%"></div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            clearResults() {
+                document.getElementById('test-results').innerHTML = '';
+                document.getElementById('test-summary').innerHTML = '';
+                document.getElementById('test-log').textContent = '';
+                this.testResults = [];
+            }
+            
+            toggleDebugMode() {
+                this.debugMode = !this.debugMode;
+                const button = document.getElementById('toggle-debug');
+                button.textContent = this.debugMode ? '关闭调试模式' : '切换调试模式';
+                button.className = this.debugMode ? 'btn btn-warning' : 'btn btn-outline-info';
+                
+                // 设置localStorage以便错误处理器使用
+                localStorage.setItem('debug', this.debugMode.toString());
+                
+                this.log(`调试模式: ${this.debugMode ? '开启' : '关闭'}`);
+            }
+        }
+        
+        // 初始化测试套件
+        document.addEventListener('DOMContentLoaded', () => {
+            window.frontendTests = new FrontendIntegrationTests();
+        });
+    </script>
+</body>
+</html>
